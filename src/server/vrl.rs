@@ -4,13 +4,13 @@ use language_server::{
     server::{LSPConnection, LSPServer},
 };
 use lsp_types::{
-    CompletionResponse, Diagnostic, ServerCapabilities, TextDocumentSyncKind,
+    CompletionList, CompletionResponse, Diagnostic, ServerCapabilities, TextDocumentSyncKind,
     TextDocumentSyncOptions,
 };
 
 use crate::{
     ast::VrlAstGenerator,
-    completion::{Completion, std::StdCompletion},
+    completion::{Completion, global::GlobalCompletion, std::StdCompletion},
     diagnostics::compile::CompileDiagnostics,
 };
 
@@ -56,10 +56,21 @@ impl LSPServer for VRLServer {
         &self,
         params: lsp_types::CompletionParams,
     ) -> anyhow::Result<language_server::server::LSPResponse, lsp_server::ResponseError> {
-        let completion_list = StdCompletion::new().complete(
+        let mut lists = vec![];
+        lists.push(GlobalCompletion::new(&self.cache).complete(
             params.text_document_position.position,
             params.text_document_position.text_document.uri.as_str(),
-        );
+        ));
+        lists.push(StdCompletion::new().complete(
+            params.text_document_position.position,
+            params.text_document_position.text_document.uri.as_str(),
+        ));
+
+        let is_incomplete = lists.iter().any(|list| list.is_incomplete);
+        let completion_list = CompletionList {
+            items: lists.into_iter().flat_map(|list| list.items).collect(),
+            is_incomplete,
+        };
         Ok(CompletionResponse::List(completion_list).into())
     }
 }

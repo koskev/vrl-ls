@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use lsp_types::{CompletionItem, CompletionList, Documentation};
+use lsp_types::{CompletionItem, CompletionItemKind, CompletionList, Documentation};
 use serde::{Deserialize, Serialize};
 
 use crate::completion::Completion;
@@ -92,6 +92,7 @@ impl Completion for StdCompletion {
             .values()
             .map(|func| CompletionItem {
                 label: func.name.clone(),
+                kind: Some(CompletionItemKind::FUNCTION),
                 detail: Some(format!(
                     "{}({})\n",
                     func.name.clone(),
