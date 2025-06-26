@@ -37,16 +37,9 @@ impl<'a> Diagnostics for CompileDiagnostics<'a> {
         };
         let res = vrl::compiler::compile(&doc.content, &vrl::stdlib::all());
         let diags = match res {
-            Ok(res) => {
-                log::error!("COMPILED");
-                res.warnings
-            }
-            Err(e) => {
-                log::error!("COMPILE FAILED");
-                e
-            }
+            Ok(res) => res.warnings,
+            Err(e) => e,
         };
-        log::error!("Diags: {:?}", diags);
 
         let rope = Rope::from_str(&doc.content);
         diags
