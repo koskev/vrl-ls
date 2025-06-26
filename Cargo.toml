@@ -1,0 +1,25 @@
+[package]
+name = "vrl-lsp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+lazy_static = "1.5.0"
+lsp-server = "0.7.8"
+lsp-types = { version = "0.97.0", features = ["proposed"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+tokio = { version = "1.45.1", features = ["macros", "rt-multi-thread", "net"] }
+language-server = { path = "../jsonnet-ls-rs/crates/language-server"}
+paste = "1.0.15"
+ropey = "1.6.1"
+regex = "1.11.1"
+tree-sitter = "0.22.6"
+tree-sitter-vrl = {git = "https://github.com/belltoy/tree-sitter-vrl"}
+pretty_assertions = "1.4.1"
+env_logger = "0.11.8"
+log = "0.4.27"
+smart-default = "0.7.1"
+schemars = "1.0.1"
+vrl = "0.25.0"
