@@ -61,7 +61,7 @@ impl LSPServer for VRLServer {
             params.text_document_position.position,
             params.text_document_position.text_document.uri.as_str(),
         ));
-        lists.push(StdCompletion::new().complete(
+        lists.push(self.std_completion.complete(
             params.text_document_position.position,
             params.text_document_position.text_document.uri.as_str(),
         ));

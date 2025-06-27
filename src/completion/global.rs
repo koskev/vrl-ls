@@ -39,7 +39,7 @@ impl<'a> Completion for GlobalCompletion<'a> {
         let doc = self.cache.get_document(filename).unwrap();
         let mut parser = tree_sitter::Parser::new();
         parser.set_language(&tree_sitter_vrl::language()).unwrap();
-        let tree = doc.ast_generator.tree.unwrap();
+        let tree = doc.ast.unwrap().tree.unwrap();
         let rope = Rope::from_str(&doc.content);
         let non_whitespace = rope.get_prev_non_whitespace(rope.get_index(location));
         let location = rope.get_location(non_whitespace).unwrap();

@@ -12,7 +12,7 @@ async fn main() {
     env_logger::init();
     let server = LSPServerManager {
         server: VRLServer {
-            connection: LSPConnection::new_network(4874),
+            //connection: LSPConnection::new_network(4874),
             std_completion: StdCompletion::new(),
             ..Default::default()
         },
