@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 use language_server::{
     cache::Cache,
+    completion::Completion,
     diagnostics::Diagnostics,
     server::{LSPConnection, LSPError, LSPServer},
 };
@@ -14,7 +15,6 @@ use tree_sitter::Node;
 use crate::{
     ast::VrlAstGenerator,
     completion::{
-        Completion,
         global::GlobalCompletion,
         std::{StdCompletion, StdFunction, StdFunctions},
     },
@@ -72,12 +72,28 @@ impl LSPServer for VRLServer {
             params.text_document_position.position,
             params.text_document_position.text_document.uri.as_str(),
         ));
+        let failed: Vec<_> = lists.iter().filter_map(|res| res.as_ref().err()).collect();
+        let succeeded: Vec<&CompletionList> =
+            lists.iter().filter_map(|res| res.as_ref().ok()).collect();
 
-        let is_incomplete = lists.iter().any(|list| list.is_incomplete);
+        if succeeded.len() == 0 && failed.len() > 0 {
+            let first_err = *failed.first().unwrap();
+            return Err(first_err.into());
+        }
+
+        for err in failed {
+            log::error!("Failed to complete: {}", err)
+        }
+
+        let is_incomplete = succeeded.iter().any(|list| list.is_incomplete);
         let completion_list = CompletionList {
-            items: lists.into_iter().flat_map(|list| list.items).collect(),
+            items: succeeded
+                .into_iter()
+                .flat_map(|list| list.items.clone())
+                .collect(),
             is_incomplete,
         };
+
         Ok(CompletionResponse::List(completion_list).into())
     }
 

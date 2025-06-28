@@ -1,9 +1,14 @@
-use language_server::{cache::Cache, utils::rope::RopeHelper};
+use anyhow::anyhow;
+use language_server::{
+    cache::Cache,
+    completion::{Completion, CompletionResult},
+    utils::rope::RopeHelper,
+};
 use lsp_types::{CompletionItem, CompletionItemKind, CompletionList};
 use ropey::Rope;
 use tree_sitter::{Node, Point};
 
-use crate::{ast::VrlAstGenerator, completion::Completion};
+use crate::ast::VrlAstGenerator;
 
 pub struct GlobalCompletion<'a> {
     pub cache: &'a Cache<VrlAstGenerator>,
@@ -35,11 +40,15 @@ fn get_node_identifier(node: Node) -> Option<Node> {
 }
 
 impl<'a> Completion for GlobalCompletion<'a> {
-    fn complete(&self, location: lsp_types::Position, filename: &str) -> lsp_types::CompletionList {
-        let doc = self.cache.get_document(filename).unwrap();
+    fn complete(&self, location: lsp_types::Position, filename: &str) -> CompletionResult {
+        let doc = self.cache.get_document(filename)?;
         let mut parser = tree_sitter::Parser::new();
         parser.set_language(&tree_sitter_vrl::language()).unwrap();
-        let tree = doc.ast.unwrap().tree.unwrap();
+        let tree = doc
+            .get_ast()?
+            .tree
+            .clone()
+            .ok_or(anyhow!("No tree available"))?;
         let rope = Rope::from_str(&doc.content);
         let non_whitespace = rope.get_prev_non_whitespace(rope.get_index(location));
         let location = rope.get_location(non_whitespace).unwrap();
@@ -55,7 +64,7 @@ impl<'a> Completion for GlobalCompletion<'a> {
             .root_node()
             .descendant_for_point_range(sitter_point, sitter_point)
         else {
-            return CompletionList::default();
+            return Ok(CompletionList::default());
         };
 
         let mut prev_node = found_node;
@@ -83,9 +92,9 @@ impl<'a> Completion for GlobalCompletion<'a> {
             })
             .collect();
 
-        CompletionList {
+        Ok(CompletionList {
             items,
             ..Default::default()
-        }
+        })
     }
 }

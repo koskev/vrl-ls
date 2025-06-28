@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
+use language_server::completion::{Completion, CompletionResult};
 use lsp_types::{CompletionItem, CompletionItemKind, CompletionList, Documentation};
 use serde::{Deserialize, Serialize};
 
-use crate::completion::Completion;
 const STDLIB_DEFINITIONS: &'static str = include_str!("stdlib.json");
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
@@ -81,11 +81,7 @@ impl StdCompletion {
 }
 
 impl Completion for StdCompletion {
-    fn complete(
-        &self,
-        _location: lsp_types::Position,
-        _filename: &str,
-    ) -> lsp_types::CompletionList {
+    fn complete(&self, _location: lsp_types::Position, _filename: &str) -> CompletionResult {
         let mut items: Vec<CompletionItem> = self
             .functions
             .functions
@@ -113,9 +109,9 @@ impl Completion for StdCompletion {
             .collect();
         items.sort_by(|a, b| a.label.cmp(&b.label));
 
-        CompletionList {
+        Ok(CompletionList {
             items,
             ..Default::default()
-        }
+        })
     }
 }
