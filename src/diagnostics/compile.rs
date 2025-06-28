@@ -32,7 +32,7 @@ impl IntoLSPSeverity for Severity {
 
 impl<'a> Diagnostics for CompileDiagnostics<'a> {
     fn diagnostics(&self, filename: &str) -> Vec<lsp_types::Diagnostic> {
-        let Some(doc) = self.cache.get_document(filename) else {
+        let Ok(doc) = self.cache.get_document(filename) else {
             return vec![];
         };
         let res = vrl::compiler::compile(&doc.content, &vrl::stdlib::all());

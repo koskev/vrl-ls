@@ -12,7 +12,7 @@ impl ASTNode for VrlAstNode {}
 
 impl ASTGenerator for VrlAstGenerator {
     type Node = VrlAstNode;
-    fn update_ast(&self, new_content: &str) -> anyhow::Result<Self::Node> {
+    fn update_ast(&self, _source_file: &str, new_content: &str) -> anyhow::Result<Self::Node> {
         let mut parser = tree_sitter::Parser::new();
         parser.set_language(&tree_sitter_vrl::language()).unwrap();
         let tree = parser.parse(new_content, None).unwrap();

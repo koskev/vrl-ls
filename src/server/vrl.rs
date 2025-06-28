@@ -1,7 +1,7 @@
 use language_server::{
     cache::Cache,
     diagnostics::Diagnostics,
-    server::{LSPConnection, LSPServer},
+    server::{LSPConnection, LSPError, LSPServer},
 };
 use lsp_types::{
     CompletionList, CompletionResponse, Diagnostic, ServerCapabilities, TextDocumentSyncKind,
@@ -55,7 +55,7 @@ impl LSPServer for VRLServer {
     fn completion(
         &self,
         params: lsp_types::CompletionParams,
-    ) -> anyhow::Result<language_server::server::LSPResponse, lsp_server::ResponseError> {
+    ) -> anyhow::Result<language_server::server::LSPResponse, LSPError> {
         let mut lists = vec![];
         lists.push(GlobalCompletion::new(&self.cache).complete(
             params.text_document_position.position,
