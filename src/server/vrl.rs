@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::anyhow;
 use language_server::{
     cache::Cache,
@@ -9,10 +11,10 @@ use language_server::{
 use lsp_types::{
     CompletionList, CompletionResponse, Diagnostic, GotoDefinitionParams, GotoDefinitionResponse,
     InlayHint, InlayHintLabel, Location, OneOf, Position, Range, ServerCapabilities,
-    TextDocumentSyncKind, TextDocumentSyncOptions,
+    TextDocumentSyncKind, TextDocumentSyncOptions, TextEdit, WorkspaceEdit,
 };
 use ropey::Rope;
-use tree_sitter::{Node, Point};
+use tree_sitter::{Node, Point, Tree};
 
 use crate::{
     ast::VrlAstGenerator,
@@ -60,6 +62,7 @@ impl LSPServer for VRLServer {
             inlay_hint_provider: Some(OneOf::Left(true)),
             definition_provider: Some(OneOf::Left(true)),
             references_provider: Some(OneOf::Left(true)),
+            rename_provider: Some(OneOf::Left(true)),
             ..Default::default()
         }
     }
@@ -251,42 +254,113 @@ impl LSPServer for VRLServer {
             .descendant_for_point_range(start, end)
             .ok_or(anyhow!("Unable to find start node"))?;
 
-        // Goto node
-        let target_node = get_target_node(start_node, &doc.content).unwrap_or(start_node);
-        // Use that node
-        // Find all nodes with the same name and check if goto finds the same node
-        let query =
-            tree_sitter::Query::new(&tree.language(), "(ident) @id").expect("BUG: Invalid query");
-        let mut cursor = tree_sitter::QueryCursor::new();
-        let captures = cursor.captures(&query, tree.root_node(), doc.content.as_bytes());
-        let items: Vec<Location> = captures
-            .flat_map(|(q_match, _)| {
-                q_match.captures.iter().flat_map(|capture| {
-                    if let Some(test_target) = get_target_node(capture.node, &doc.content) {
-                        if target_node == test_target {
-                            // Found reference
-                            return Some(Location {
-                                uri: params.text_document_position.text_document.uri.clone(),
-                                range: Range {
-                                    start: Position {
-                                        line: capture.node.start_position().row as u32,
-                                        character: capture.node.start_position().column as u32,
-                                    },
-                                    end: Position {
-                                        line: capture.node.end_position().row as u32,
-                                        character: capture.node.end_position().column as u32,
-                                    },
-                                },
-                            });
-                        }
-                    }
-                    None
-                })
+        let references = find_references(&tree, start_node, &doc.content);
+        let items: Vec<Location> = references
+            .into_iter()
+            .map(|node| Location {
+                uri: params.text_document_position.text_document.uri.clone(),
+                range: Range {
+                    start: Position {
+                        line: node.start_position().row as u32,
+                        character: node.start_position().column as u32,
+                    },
+                    end: Position {
+                        line: node.end_position().row as u32,
+                        character: node.end_position().column as u32,
+                    },
+                },
             })
             .collect();
 
         Ok(items.into())
     }
+
+    fn rename(
+        &self,
+        params: <lsp_types::request::Rename as lsp_types::request::Request>::Params,
+    ) -> anyhow::Result<language_server::server::LSPResponse, LSPError> {
+        let doc = self
+            .cache
+            .get_document(params.text_document_position.text_document.uri.as_str())?;
+        let tree = doc
+            .get_ast()?
+            .tree
+            .clone()
+            .ok_or(anyhow!("AST was never parsed"))?;
+        let mut parser = tree_sitter::Parser::new();
+        parser
+            .set_language(&tree.language())
+            .or_else(|e| Err(anyhow!("Setting language of parser: {e}")))?;
+
+        let mut start = Point {
+            row: params.text_document_position.position.line as usize,
+            column: params.text_document_position.position.character as usize,
+        };
+        let end = start.clone();
+
+        if start.column > 0 {
+            start.column -= 1;
+        }
+
+        let start_node = tree
+            .root_node()
+            .descendant_for_point_range(start, end)
+            .ok_or(anyhow!("Unable to find start node"))?;
+
+        // Find all references
+        let references = find_references(&tree, start_node, &doc.content);
+        // Rename them
+        let edits: Vec<TextEdit> = references
+            .iter()
+            .map(|node| TextEdit {
+                new_text: params.new_name.clone(),
+                range: Range {
+                    start: Position {
+                        line: node.start_position().row as u32,
+                        character: node.start_position().column as u32,
+                    },
+                    end: Position {
+                        line: node.end_position().row as u32,
+                        character: node.end_position().column as u32,
+                    },
+                },
+            })
+            .collect();
+
+        Ok(WorkspaceEdit {
+            changes: Some(HashMap::from([(
+                params.text_document_position.text_document.uri,
+                edits,
+            )])),
+            ..Default::default()
+        }
+        .into())
+    }
+}
+
+fn find_references<'a>(tree: &'a Tree, start_node: Node<'a>, content: &'a str) -> Vec<Node<'a>> {
+    // Goto node
+    let target_node = get_target_node(start_node, content).unwrap_or(start_node);
+    // Use that node
+    // Find all nodes with the same name and check if goto finds the same node
+    let query =
+        tree_sitter::Query::new(&tree.language(), "(ident) @id").expect("BUG: Invalid query");
+    let mut cursor = tree_sitter::QueryCursor::new();
+    let root_node = tree.root_node();
+    let captures = cursor.captures(&query, root_node, content.as_bytes());
+    captures
+        .flat_map(|(q_match, _)| {
+            q_match.captures.iter().filter_map(|capture| {
+                if let Some(test_target) = get_target_node(capture.node, content) {
+                    if target_node == test_target {
+                        // Found reference
+                        return Some(capture.node);
+                    }
+                }
+                None
+            })
+        })
+        .collect()
 }
 
 fn get_target_node<'a>(start_node: Node<'a>, content: &'a str) -> Option<Node<'a>> {
