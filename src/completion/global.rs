@@ -8,7 +8,10 @@ use lsp_types::{CompletionItem, CompletionItemKind, CompletionList};
 use ropey::Rope;
 use tree_sitter::{Node, Point};
 
-use crate::ast::VrlAstGenerator;
+use crate::{
+    ast::VrlAstGenerator,
+    utils::{get_node_identifier, get_sibling_or_parent},
+};
 
 pub struct GlobalCompletion<'a> {
     pub cache: &'a Cache<VrlAstGenerator>,
@@ -18,25 +21,6 @@ impl<'a> GlobalCompletion<'a> {
     pub fn new(cache: &'a Cache<VrlAstGenerator>) -> Self {
         Self { cache }
     }
-}
-
-fn get_sibling_or_parent(node: Node) -> Option<Node> {
-    match node.prev_sibling() {
-        Some(sibling) => Some(sibling),
-        None => node.parent(),
-    }
-}
-
-fn get_node_identifier(node: Node) -> Option<Node> {
-    if node.grammar_name() == "assignment" {
-        let first_child = node.child(0)?;
-        let second_child = first_child.child(0)?;
-
-        if first_child.grammar_name() == "assign_target" && second_child.grammar_name() == "ident" {
-            return Some(second_child);
-        }
-    }
-    None
 }
 
 impl<'a> Completion for GlobalCompletion<'a> {

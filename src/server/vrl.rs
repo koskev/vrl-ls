@@ -4,13 +4,15 @@ use language_server::{
     completion::Completion,
     diagnostics::Diagnostics,
     server::{LSPConnection, LSPError, LSPServer},
+    utils::cst::CstNodeHelper,
 };
 use lsp_types::{
-    CompletionList, CompletionResponse, Diagnostic, InlayHint, InlayHintLabel, OneOf, Position,
-    ServerCapabilities, TextDocumentSyncKind, TextDocumentSyncOptions,
+    CompletionList, CompletionResponse, Diagnostic, GotoDefinitionParams, GotoDefinitionResponse,
+    InlayHint, InlayHintLabel, Location, OneOf, Position, Range, ServerCapabilities,
+    TextDocumentSyncKind, TextDocumentSyncOptions,
 };
 use ropey::Rope;
-use tree_sitter::Node;
+use tree_sitter::{Node, Point};
 
 use crate::{
     ast::VrlAstGenerator,
@@ -19,6 +21,7 @@ use crate::{
         std::{StdCompletion, StdFunction, StdFunctions},
     },
     diagnostics::compile::CompileDiagnostics,
+    utils::{get_node_identifier, get_sibling_or_parent},
 };
 
 #[derive(Default)]
@@ -55,6 +58,7 @@ impl LSPServer for VRLServer {
                 ..Default::default()
             }),
             inlay_hint_provider: Some(OneOf::Left(true)),
+            definition_provider: Some(OneOf::Left(true)),
             ..Default::default()
         }
     }
@@ -156,6 +160,74 @@ impl LSPServer for VRLServer {
             .collect();
 
         Ok(items.into())
+    }
+
+    fn goto_definition(
+        &self,
+        params: GotoDefinitionParams,
+    ) -> anyhow::Result<language_server::server::LSPResponse, LSPError> {
+        let doc = self.cache.get_document(
+            params
+                .text_document_position_params
+                .text_document
+                .uri
+                .as_str(),
+        )?;
+        let tree = doc
+            .get_ast()?
+            .tree
+            .clone()
+            .ok_or(anyhow!("AST was never parsed"))?;
+        let mut parser = tree_sitter::Parser::new();
+        parser
+            .set_language(&tree.language())
+            .or_else(|e| Err(anyhow!("Setting language of parser: {e}")))?;
+
+        let mut start = Point {
+            row: params.text_document_position_params.position.line as usize,
+            column: params.text_document_position_params.position.character as usize,
+        };
+        let end = start.clone();
+
+        if start.column > 0 {
+            start.column -= 1;
+        }
+
+        let start_node = tree
+            .root_node()
+            .descendant_for_point_range(start, end)
+            .ok_or(anyhow!("Unable to find start node"))?;
+
+        let node_name = start_node
+            .get_name(&doc.content)
+            .ok_or(anyhow!("Unable to get node name"))?;
+
+        // Look at all nodes above this one
+
+        let mut prev_node = start_node;
+        while let Some(next_parent) = get_sibling_or_parent(prev_node) {
+            if let Some(ident_node) = get_node_identifier(next_parent) {
+                if ident_node.get_name(&doc.content).unwrap_or_default() == node_name {
+                    return Ok(GotoDefinitionResponse::Scalar(Location {
+                        uri: params.text_document_position_params.text_document.uri,
+                        range: Range {
+                            start: Position {
+                                line: next_parent.start_position().row as u32,
+                                character: next_parent.start_position().column as u32,
+                            },
+                            end: Position {
+                                line: next_parent.end_position().row as u32,
+                                character: next_parent.end_position().column as u32,
+                            },
+                        },
+                    })
+                    .into());
+                }
+            }
+            prev_node = next_parent;
+        }
+
+        Err(anyhow!("Not found after reaching the root node").into())
     }
 }
 
