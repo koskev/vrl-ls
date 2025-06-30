@@ -26,6 +26,7 @@ use crate::{
     utils::{get_node_identifier, get_sibling_or_parent},
 };
 
+// TODO: figure out tree lifetimes and reduce duplicate code
 #[derive(Default)]
 pub struct VRLServer {
     pub connection: LSPConnection,

@@ -1,5 +1,5 @@
 [package]
-name = "vrl-lsp"
+name = "vrl-ls"
 version = "0.1.0"
 edition = "2024"
 
@@ -11,7 +11,7 @@ lsp-types = { version = "0.97.0", features = ["proposed"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 tokio = { version = "1.45.1", features = ["macros", "rt-multi-thread", "net"] }
-language-server = { path = "../jsonnet-ls-rs/crates/language-server"}
+language-server = { path = "crates/language-server"}
 paste = "1.0.15"
 ropey = "1.6.1"
 regex = "1.11.1"
