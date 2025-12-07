@@ -1,7 +1,7 @@
 on: 
   push:
     tags:
-      - '*'
+      - 'v*'
   workflow_dispatch:
 jobs:
   release:
@@ -34,12 +34,8 @@ jobs:
           OUTPUT: Changes.md
           GITHUB_REPO: ${{ github.repository }}
       - name: Build binary
-        uses: houseabsolute/actions-rust-cross@v1
-        with:
-          command: build
-          target: ${{ matrix.platform.target }}
-          args: "--locked --release"
-          strip: true
+        run: cargo build --release
+      # TODO: Replace AI action
       - name: Publish artifacts and release
         uses: houseabsolute/actions-rust-release@v0
         with:
