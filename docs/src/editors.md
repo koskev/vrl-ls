@@ -1,6 +1,24 @@
 # Editors
 
 # Neovim
+
+Add the following to your config
+```lua
+vim.filetype.add({
+  extension = {
+    vrl = "vrl",
+  }
+})
+
+vim.lsp.config['vrl-ls'] = {
+  cmd = { "vrl-ls" },
+  filetypes = { 'vrl' },
+  root_markers = { '.git' },
+}
+vim.lsp.enable('vrl-ls')
+
+```
+
 # (Evil-)Helix
 
 # VSCodium

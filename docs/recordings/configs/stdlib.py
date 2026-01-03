@@ -11,6 +11,6 @@ with NeovimRecorder("test.vrl", "stdlib").record() as recorder:
      .sleep(1)
      .command(select_next)
      .sleep(1)
-     .escape()
+     .enter()
      .quit()
      )

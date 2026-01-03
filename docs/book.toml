@@ -7,3 +7,5 @@ title = "vrl-ls Documentation"
 [output.html]
 additional-css = ["./node_modules/asciinema-player/dist/bundle/asciinema-player.css"]
 additional-js = ["./node_modules/asciinema-player/dist/bundle/asciinema-player.min.js", "add_players.js"]
+git-repository-url = "https://github.com/koskev/vrl-ls"
+edit-url-template = "https://github.com/koskev/vrl-ls/edit/main/docs/{path}"
