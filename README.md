@@ -2,6 +2,8 @@
 
 This is just a PoC implementation and thus not very pretty.
 
+[Example videos](https://koskev.github.io/vrl-ls/showcase.html)
+
 ## Installation
 
 Either compile locally with
