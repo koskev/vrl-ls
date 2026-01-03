@@ -5,7 +5,7 @@ serve: dependencies build_recordings changelog
 	mdbook serve
 
 build_recordings:
-	cd recordings; compile-recordings -d configs; cd ..
+	cd recordings; compile-recordings -d configs -t 30; cd ..
 
 changelog:
 	git-cliff --workdir .. -o changelog.md
