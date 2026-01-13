@@ -7,11 +7,11 @@ use anyhow::anyhow;
 use language_server::{
     cache::Cache,
     completion::{Completion, CompletionResult},
-    utils::rope::RopeHelper,
+    utils::{rope::RopeHelper},
 };
-use lsp_types::{CompletionItem, CompletionItemKind, CompletionList};
+use lsp_types::{CompletionItem, CompletionItemKind, CompletionList, Uri};
 use ropey::Rope;
-use tree_sitter::{Node, Point};
+use tree_sitter::{ Point};
 
 use crate::{
     ast::VrlAstGenerator,
@@ -29,8 +29,8 @@ impl<'a> GlobalCompletion<'a> {
 }
 
 impl<'a> Completion for GlobalCompletion<'a> {
-    fn complete(&self, location: lsp_types::Position, filename: &str) -> CompletionResult {
-        let doc = self.cache.get_document(filename)?;
+    fn complete(&self, location: lsp_types::Position, uri: &Uri) -> CompletionResult {
+        let doc = self.cache.get_document(uri)?;
         let mut parser = tree_sitter::Parser::new();
         parser.set_language(&tree_sitter_vrl::language()).unwrap();
         let tree = doc

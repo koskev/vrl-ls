@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 use language_server::completion::{Completion, CompletionResult};
-use lsp_types::{CompletionItem, CompletionItemKind, CompletionList, Documentation};
+use lsp_types::{CompletionItem, CompletionItemKind, CompletionList, Documentation, Uri};
 use serde::{Deserialize, Serialize};
 
 const STDLIB_DEFINITIONS: &'static str = include_str!("stdlib.json");
@@ -86,7 +86,7 @@ impl StdCompletion {
 }
 
 impl Completion for StdCompletion {
-    fn complete(&self, _location: lsp_types::Position, _filename: &str) -> CompletionResult {
+    fn complete(&self, _location: lsp_types::Position, _uri: &Uri) -> CompletionResult {
         let mut items: Vec<CompletionItem> = self
             .functions
             .functions

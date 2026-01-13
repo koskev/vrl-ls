@@ -5,7 +5,8 @@
 
 use language_server::server::{LSPConnection, LSPServerManager};
 
-use crate::{completion::std::StdCompletion, server::vrl::VRLServer};
+use crate::{server::vrl::VRLServer};
+use clap::Parser;
 
 mod ast;
 mod completion;
@@ -13,15 +14,29 @@ mod diagnostics;
 mod server;
 mod utils;
 
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(long, short)]
+    port: Option<u16>,
+}
+
+
+
 #[tokio::main]
 async fn main() {
     env_logger::init();
+    let args = Args::parse();
+
+    let connection = if let Some(port) = args.port {
+        LSPConnection::new_network(port)
+    } else {
+        LSPConnection::default()
+    };
+
     let server = LSPServerManager {
-        server: VRLServer {
-            //connection: LSPConnection::new_network(4874),
-            std_completion: StdCompletion::new(),
-            ..Default::default()
-        },
+        server: VRLServer::new(connection),
     };
     server.run().unwrap();
 }

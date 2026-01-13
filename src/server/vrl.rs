@@ -7,28 +7,19 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 use language_server::{
-    cache::Cache,
-    completion::Completion,
-    diagnostics::Diagnostics,
-    server::{LSPConnection, LSPError, LSPServer},
-    utils::cst::CstNodeHelper,
+    cache::Cache, completion::Completion, diagnostics::{Diagnostics, DiagnosticsQueue, DummyFilter}, server::{LSPConnection, LSPError, LSPServer}, utils::cst::CstNodeHelper
 };
 use lsp_types::{
-    CompletionList, CompletionResponse, Diagnostic, GotoDefinitionParams, GotoDefinitionResponse,
-    InlayHint, InlayHintLabel, Location, OneOf, Position, Range, ServerCapabilities,
-    TextDocumentSyncKind, TextDocumentSyncOptions, TextEdit, WorkspaceEdit,
+    CompletionList, CompletionResponse, GotoDefinitionParams, GotoDefinitionResponse, InlayHint, InlayHintLabel, Location, OneOf, Position, Range, ServerCapabilities, TextDocumentSyncKind, TextDocumentSyncOptions, TextEdit, Uri, WorkspaceEdit
 };
 use ropey::Rope;
 use tree_sitter::{Node, Point, Tree};
 
 use crate::{
-    ast::VrlAstGenerator,
-    completion::{
+    ast::VrlAstGenerator, completion::{
         global::GlobalCompletion,
         std::{StdCompletion, StdFunction, StdFunctions},
-    },
-    diagnostics::compile::CompileDiagnostics,
-    utils::{get_node_identifier, get_sibling_or_parent},
+    }, diagnostics::compile::CompileDiagnostics, utils::{get_node_identifier, get_sibling_or_parent}
 };
 
 // TODO: figure out tree lifetimes and reduce duplicate code
@@ -38,6 +29,38 @@ pub struct VRLServer {
     pub cache: Cache<VrlAstGenerator>,
 
     pub std_completion: StdCompletion,
+
+    pub diagnostics_queue: Option<DiagnosticsQueue<DummyFilter>>,
+}
+
+impl VRLServer {
+    pub fn new(connection: LSPConnection) -> Self{
+        let cache = Cache::default();
+        let diagnostics_queue = DiagnosticsQueue::new(
+            connection.connection.sender.clone(),
+             DummyFilter{}
+        );
+
+        let task_queue = diagnostics_queue.clone();
+        bevy_tasks::ComputeTaskPool::get_or_init(bevy_tasks::TaskPool::default)
+            .spawn(async move {
+                task_queue.run();
+            })
+        .detach();
+
+        Self {
+            cache,
+            std_completion: StdCompletion::new(),
+            diagnostics_queue: Some(diagnostics_queue),
+            connection,
+        }
+    }
+
+    fn get_diagnostics_provider(&self) -> Vec<Box<dyn Diagnostics>>{
+        vec![
+            Box::new(CompileDiagnostics::new(self.cache.clone()))
+        ]
+    }
 }
 
 impl LSPServer for VRLServer {
@@ -49,9 +72,17 @@ impl LSPServer for VRLServer {
     fn cache(&self) -> &Cache<Self::AstGenerator> {
         &self.cache
     }
-    fn get_diagnostics(&self, filename: &str) -> Vec<Diagnostic> {
-        CompileDiagnostics::new(&self.cache).diagnostics(filename)
+    //fn get_diagnostics(&self, filename: &str) -> Vec<Diagnostic> {
+    //    CompileDiagnostics::new(&self.cache).diagnostics(filename)
+    //}
+
+        fn queue_diagnostics(&self, uri: &Uri) {
+        let diags = self.get_diagnostics_provider();
+        if let Some(queue) = self.diagnostics_queue.as_ref() {
+            queue.queue(uri.clone(), diags);
+        }
     }
+
 
     fn get_capabilities(&self) -> lsp_types::ServerCapabilities {
         ServerCapabilities {
@@ -80,11 +111,11 @@ impl LSPServer for VRLServer {
         let mut lists = vec![];
         lists.push(GlobalCompletion::new(&self.cache).complete(
             params.text_document_position.position,
-            params.text_document_position.text_document.uri.as_str(),
+            &params.text_document_position.text_document.uri,
         ));
         lists.push(self.std_completion.complete(
             params.text_document_position.position,
-            params.text_document_position.text_document.uri.as_str(),
+            &params.text_document_position.text_document.uri,
         ));
         let failed: Vec<_> = lists.iter().filter_map(|res| res.as_ref().err()).collect();
         let succeeded: Vec<&CompletionList> =
@@ -115,7 +146,7 @@ impl LSPServer for VRLServer {
         &self,
         params: <lsp_types::request::InlayHintRequest as lsp_types::request::Request>::Params,
     ) -> anyhow::Result<language_server::server::LSPResponse, LSPError> {
-        let doc = self.cache.get_document(params.text_document.uri.as_str())?;
+        let doc = self.cache.get_document(&params.text_document.uri)?;
 
         let tree = doc
             .get_ast()?
@@ -177,11 +208,10 @@ impl LSPServer for VRLServer {
         params: GotoDefinitionParams,
     ) -> anyhow::Result<language_server::server::LSPResponse, LSPError> {
         let doc = self.cache.get_document(
-            params
+            &params
                 .text_document_position_params
                 .text_document
-                .uri
-                .as_str(),
+                .uri,
         )?;
         let tree = doc
             .get_ast()?
@@ -234,7 +264,7 @@ impl LSPServer for VRLServer {
     ) -> anyhow::Result<language_server::server::LSPResponse, LSPError> {
         let doc = self
             .cache
-            .get_document(params.text_document_position.text_document.uri.as_str())?;
+            .get_document(&params.text_document_position.text_document.uri)?;
         let tree = doc
             .get_ast()?
             .tree
@@ -287,7 +317,7 @@ impl LSPServer for VRLServer {
     ) -> anyhow::Result<language_server::server::LSPResponse, LSPError> {
         let doc = self
             .cache
-            .get_document(params.text_document_position.text_document.uri.as_str())?;
+            .get_document(&params.text_document_position.text_document.uri)?;
         let tree = doc
             .get_ast()?
             .tree
