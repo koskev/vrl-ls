@@ -12,6 +12,7 @@
     };
     nix-actions.url = "github:koskev/nix-actions";
     import-tree.url = "github:vic/import-tree";
+    recordings.url = "git+https://codeberg.org/kokev/lsp-recorder.git";
   };
 
   outputs =

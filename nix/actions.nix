@@ -23,7 +23,7 @@ in
         jobs = {
           docs.steps = commonSteps ++ [
             {
-              run = "cd docs && nix develop --command make build && cd ..";
+              run = "cd docs && nix develop ..#docs --command make build && cd ..";
             }
             {
               name = "Upload artifacts for pages";
