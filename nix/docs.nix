@@ -30,14 +30,14 @@
         with pkgs;
         [
           baseNeovim
-          vrl-ls.defaultPackage.${system}
+          self'.packages.default
 
           gnumake
           mdbook
           git-cliff
           nodejs
         ]
-        ++ recordings.lib.${system}.baseNeovim.nativeBuildInputs;
+        ++ inputs.recordings.lib.${system}.baseNeovim.nativeBuildInputs;
     in
     {
       devShells = {
