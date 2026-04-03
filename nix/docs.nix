@@ -4,7 +4,6 @@
     {
       pkgs,
       system,
-      self',
       ...
     }:
     let
@@ -37,7 +36,7 @@
           git-cliff
           nodejs
         ]
-        ++ recordings.lib.${system}.baseNeovim.nativeBuildInputs;
+        ++ inputs.recordings.lib.${system}.baseNeovim.nativeBuildInputs;
     in
     {
       devShells = {
