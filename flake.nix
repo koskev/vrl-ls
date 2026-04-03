@@ -1,61 +1,33 @@
 {
   inputs = {
-    flake-utils.url = "github:numtide/flake-utils";
-    naersk.url = "github:nix-community/naersk";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    crane.url = "github:ipetkov/crane";
+    actions-nix = {
+      url = "github:nialov/actions.nix";
+      inputs = {
+        flake-parts.follows = "flake-parts";
+        nixpkgs.follows = "nixpkgs";
+      };
+    };
+    nix-actions.url = "github:koskev/nix-actions";
+    import-tree.url = "github:vic/import-tree";
   };
 
   outputs =
-    {
-      self,
-      flake-utils,
-      naersk,
-      nixpkgs,
-    }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        pkgs = (import nixpkgs) {
-          inherit system;
-        };
-
-        naersk' = pkgs.callPackage naersk { };
-        nativeBuildInputs = with pkgs; [
-
-          clang
-          pkg-config
-        ];
-
-      in
-      {
-        # For `nix build` & `nix run`:
-        defaultPackage = naersk'.buildPackage {
-          name = "vrl-ls";
-          src = ./.;
-
-          inherit nativeBuildInputs;
-          LIBCLANG_PATH = with pkgs; "${llvmPackages.libclang.lib}/lib";
-        };
-
-        # For `nix develop`:
-        devShell = pkgs.mkShell {
-          nativeBuildInputs =
-            with pkgs;
-            nativeBuildInputs
-            ++ [
-              cargo
-              rustc
-              cargo-tarpaulin
-              clippy
-              vector
-
-              rust-analyzer
-              bacon
-              tracy
-            ];
-          RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
-          LIBCLANG_PATH = with pkgs; "${llvmPackages.libclang.lib}/lib";
-        };
-      }
-    );
+    inputs@{ flake-parts, ... }:
+    # https://flake.parts/module-arguments.html
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      imports = [ (inputs.import-tree ./nix) ];
+      flake = {
+        # Put your original flake attributes here.
+      };
+      systems = [
+        # systems for which you want to build the `perSystem` attributes
+        "x86_64-linux"
+        "aarch64-linux"
+        "aarch64-darwin"
+        "x86_64-darwin"
+      ];
+    };
 }
